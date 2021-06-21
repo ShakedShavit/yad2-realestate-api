@@ -2,18 +2,75 @@ const express = require('express');
 const Apartment = require('../models/apartment');
 const auth = require('../middleware/auth');
 const FileModel = require('../models/file');
-const publishApartment = require('../middleware/publishApartment');
+// const publishApartment = require('../middleware/publishApartment');
 const {
     uploadFilesToS3, getFileFromS3
 } = require('../middleware/s3-handlers');
+const validateApartment = require('../middleware/validateApartment');
 
 const router = express.Router();
 
 const rootRoute = '/apartments/'
 
-router.post(rootRoute + 'publish', auth, publishApartment, uploadFilesToS3, async (req, res) => {
-    console.log(req.file, req.files, req.body, "\n\n\n\n\n\n\n\n\n", req.files.length);
-    if (!req.files) { // ! check what happens if no files are provided (not provided on purpose)
+router.post(rootRoute + 'publish', auth, async (req, res) => {
+    try {
+        let apartmentObj = {
+            type: req.body.type,
+            condition: req.body.condition,
+            location: {
+                town: req.body.town,
+                streetName: req.body.streetName,
+                houseNum: req.body.houseNum,
+                floor: req.body.floor,
+                buildingMaxFloor: req.body.buildingMaxFloor
+            },
+            properties: {
+                isStandingOnPolls: req.body.isStandingOnPolls,
+                numberOfRooms: req.body.numberOfRooms,
+                numberOfParkingSpots: req.body.numberOfParkingSpots,
+                numberOfBalconies: req.body.numberOfBalconies,
+                hasAirConditioning: req.body.hasAirConditioning,
+                hasFurniture: req.body.hasFurniture,
+                isRenovated: req.body.isRenovated,
+                hasSafeRoom: req.body.hasSafeRoom,
+                isAccessible: req.body.isAccessible,
+                hasKosherKitchen: req.body.hasKosherKitchen,
+                hasShed: req.body.hasShed,
+                hasLift: req.body.hasLift,
+                hasSunHeatedWaterTanks: req.body.hasSunHeatedWaterTanks,
+                hasPandorDoors: req.body.hasPandorDoors,
+                hasTadiranAc: req.body.hasTadiranAc,
+                hasWindowBars: req.body.hasWindowBars,
+                description: req.body.description
+            },
+            price: req.body.price,
+            size: {
+                builtSqm: req.body.builtSqm,
+                totalSqm: req.body.totalSqm
+            },
+            entranceDate: {
+                date: req.body.date,
+                isImmediate: req.body.isImmediate
+            },
+            contactEmail: req.body.contactEmail,
+            publisher: req.user._id
+        }
+
+        if (!req.body.publishers || req.body.publishers.length === 0) throw new Error("Apartment's publishers are missing, must include at least one (name, phone number)");
+        apartmentObj.publishers = [ ...req.body.publishers ];
+
+        const apartment = new Apartment(apartmentObj);
+        await apartment.save();
+
+        res.status(201).send(apartment);
+    } catch (err) {
+        console.log(err.message, '42');
+        res.status(400).send(err);
+    }
+});
+
+router.post(rootRoute + 'publish/upload-files', auth, validateApartment, uploadFilesToS3, async (req, res) => {
+    if (!req.files) {
         return res.status(422).send({
             status: 422,
             message: "file not uploaded"
@@ -21,6 +78,7 @@ router.post(rootRoute + 'publish', auth, publishApartment, uploadFilesToS3, asyn
     }
 
     try {
+        let files = [];
         let fileObjectsSavesPromises = [];
         for (let i = 0; i < req.files.length; i++) {
             let reqFile = req.files[i];
@@ -31,12 +89,15 @@ router.post(rootRoute + 'publish', auth, publishApartment, uploadFilesToS3, asyn
                 region: process.env.AWS_REGION,
                 key: reqFile.key,
                 type: reqFile.mimetype,
-                owner: req.apartment._id,
+                owner: req.query.apartmentId, // !!
                 isMainFile: i === 0
             });
             fileObjectsSavesPromises.push(file.save());
         }
-        await Promise.allSettled(fileObjectsSavesPromises, (values) => {});
+        const values = await Promise.allSettled(fileObjectsSavesPromises);
+        values.forEach(value => { if (value.status === "fulfilled") files.push(value.value) });
+
+        res.status(201).send(files)
     } catch (err) {
         console.log(err.message, '42');
         res.status(500).send(err);
@@ -82,53 +143,59 @@ const apartmentModelNumFields = [
 
 router.get(rootRoute, async (req, res) => {
     const apartmentsPollLimit = 20;
-    const params = req.params;
+    const params = req.query;
+    if (!params.apartmentIds) params.apartmentIds = [];
 
     let strAndBoolQueries = [];
-    for (let [key, value] of Object.entries(params)) {
-        if (!apartmentModelStrFields.includes(key) && !apartmentModelBoolFields.includes(key)) continue;
-        let modelKey;
-        if (key === 'town' || key === 'streetName') modelKey = `location.${key}`;
-        else if (key === 'isImmediate') modelKey = `entranceDate.${key}`;
-        else if (key === 'type' || key === 'condition') modelKey = key;
-        else modelKey = `properties.${key}`;
+    let numericQueries = [];
 
-        if (key === 'description') {
+    for (let [key, value] of Object.entries(params)) {
+        let modelKey;
+        if (apartmentModelStrFields.includes(key) || apartmentModelBoolFields.includes(key)) {
+            if (key === 'town' || key === 'streetName') modelKey = `location.${key}`;
+            else if (key === 'isImmediate') modelKey = `entranceDate.${key}`;
+            else if (key === 'type' || key === 'condition') modelKey = key;
+            else modelKey = `properties.${key}`;
+
+            if (key === 'description') {
+                strAndBoolQueries.push({
+                    [`${modelKey}`]: {
+                        $regex: `${value.substring(0, 400)}`
+                    }
+                });
+                continue;
+            }
             strAndBoolQueries.push({
-                [`${modelKey}`]: {
-                    $regex: `${value.substring(0, 400)}`
-                }
+                [`${modelKey}`]: value
             });
+
             continue;
         }
-        strAndBoolQueries.push({
-            [`${modelKey}`]: value
-        });
-    }
-
-    let numericQueries = [];
-    for (let [key, value] of Object.entries(params)) {
+        
         let field = key.substring(4); // "Omits the min- or max- label"
-        if (!apartmentModelNumFields.includes(field)) continue; // !! find({ airedAt: { $gte: '1987-10-19', $lte: '1987-10-26' } }). DATE FORMAT
+        if (apartmentModelNumFields.includes(field)) {
+            if (!apartmentModelNumFields.includes(field)) continue; // !! find({ airedAt: { $gte: '1987-10-19', $lte: '1987-10-26' } }). DATE FORMAT
 
-        let modelKey;
-        if (field === 'houseNum' || field === 'floor' || field === 'buildingMaxFloor') modelKey = `location.${field}`;
-        else if (field === 'builtSqm' || field === 'totalSqm') modelKey = `size.${field}`;
-        else if (field === 'date') modelKey = `entranceDate.${field}`;
-        else if (field === 'price') modelKey = field;
-        else modelKey = `properties.${field}`;
+            if (field === 'houseNum' || field === 'floor' || field === 'buildingMaxFloor') modelKey = `location.${field}`;
+            else if (field === 'builtSqm' || field === 'totalSqm') modelKey = `size.${field}`;
+            else if (field === 'date') modelKey = `entranceDate.${field}`;
+            else if (field === 'price') modelKey = field;
+            else modelKey = `properties.${field}`;
 
-        let isMin = key.substring(0, 3) === "min"; // ! Check if I this works or if I need to put $and if there is both $gte and $lte
-        isMin ? numericQueries.push({
-            [modelKey]: {
-                $gte: value
+            let isMin = key.substring(0, 3) === "min";
+            isMin ? numericQueries.push({
+                [modelKey]: {
+                    $gte: value
+                }
+            }) : numericQueries.push({
+                [modelKey]: {
+                    $lte: value
+                }
+            });
             }
-        }) : numericQueries.push({
-            [modelKey]: {
-                $lte: value
-            }
-        });
     }
+
+    console.log(strAndBoolQueries, numericQueries, "\n", params);
 
     try {
         const apartments = await Apartment.find({

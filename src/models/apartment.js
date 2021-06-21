@@ -120,7 +120,7 @@ const apartmentSchema = new mongoose.Schema({
                 if (value > maxNum) throw new Error(`Number of rooms cannot surpass ${maxNum}`);
                 const reminder = value % 1;
                 if (reminder !== 0 && (value > 7 || value < 1)) throw new Error('Number of rooms must be a whole number if it is bigger than 7 or smaller than 1');
-                if (reminder !== 0.5 || reminder !== 0) throw new Error('Number of rooms cannot have a fraction different than .5 or .0');
+                if (reminder !== 0.5 && reminder !== 0) throw new Error('Number of rooms cannot have a fraction different than .5 or .0');
             }
         },
         numberOfParkingSpots: {
@@ -228,7 +228,10 @@ const apartmentSchema = new mongoose.Schema({
     entranceDate: {
         date: {
             type: Date,
-            required: true
+            required: true,
+            validate(value) {
+                if (value < Date.now()) throw new Error('Entry date cannot be before today');
+            }
         },
         isImmediate: {
             type: Boolean,

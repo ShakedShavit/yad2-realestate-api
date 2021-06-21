@@ -10,7 +10,7 @@ const fileStorage = multerS3({
     acl: 'private', //'public-read',
     contentType: multerS3.AUTO_CONTENT_TYPE,
     contentDisposition: (req, file, cb) => {
-        cb(null, "attachment; filename=" + file.originalname);
+        cb(null, "inline; filename=" + file.originalname);
     },
     bucket,
     metadata: (req, file, cb) => {
@@ -18,7 +18,7 @@ const fileStorage = multerS3({
     },
     key: (req, file, cb) => {
         const folderName = file.mimetype.split('/')[0] + "s/";
-        const subFolderName = req.apartment._id + "/";
+        const subFolderName = req.query.apartmentId + "/";
         const fileName = folderName + subFolderName + new Date().getTime() + '-' + file.originalname;
         cb(null, fileName);
     }

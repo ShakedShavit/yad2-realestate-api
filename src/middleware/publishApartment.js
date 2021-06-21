@@ -47,6 +47,8 @@ const publishApartment = async (req, res, next) => {
         }
 
         //!!! Check here how it will work with fd
+        console.log(req.publishers);
+        if (!req.publishers || req.publishers.length === 0) throw new Error("Apartment's publishers are missing, must include at least one (name, phone number)");
         req.publishers.forEach(publisher => {
             apartmentObj.publisher.push({
                 publisherName: publisher.publisherName,
@@ -61,7 +63,7 @@ const publishApartment = async (req, res, next) => {
         
         next();
     } catch (err) {
-        console.log(Object.entries(err.errors), '8');
+        console.log(err.message, '8');
         res.status(400).send(err.message);
     }
 }
