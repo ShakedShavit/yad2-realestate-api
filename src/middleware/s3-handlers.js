@@ -1,6 +1,7 @@
 const AWS = require('aws-sdk');
 const multer = require('multer');
 const multerS3 = require('multer-s3');
+const contentDisposition = require('content-disposition');
 
 const s3 = new AWS.S3({ region: process.env.AWS_REGION });
 const bucket = process.env.S3_BUCKET;
@@ -10,16 +11,21 @@ const fileStorage = multerS3({
     acl: 'private', //'public-read',
     contentType: multerS3.AUTO_CONTENT_TYPE,
     contentDisposition: (req, file, cb) => {
-        cb(null, "inline; filename=" + file.originalname);
+        console.log(file, "\n", contentDisposition(file.originalname, { type: "inline" }));
+        cb(null, contentDisposition(file.originalname, { type: "inline" }));
     },
     bucket,
     metadata: (req, file, cb) => {
         cb(null, {fieldName: file.fieldname});
     },
     key: (req, file, cb) => {
-        const folderName = file.mimetype.split('/')[0] + "s/";
-        const subFolderName = req.query.apartmentId + "/";
-        const fileName = folderName + subFolderName + new Date().getTime() + '-' + file.originalname;
+        const contentDispositionStr = contentDisposition(file.originalname, { type: "inline" });
+        let newFileName = contentDispositionStr.substring(contentDispositionStr.indexOf(';') + 12);
+        newFileName = newFileName.substring(0, newFileName.indexOf('"'));
+        
+        const folderName = req.query.apartmentId + "/";
+        const subFolderName = file.mimetype.split('/')[0] + "s/";
+        const fileName = folderName + subFolderName + new Date().getTime() + '-' + newFileName;
         cb(null, fileName);
     }
 });
@@ -39,6 +45,7 @@ const getFileFromS3 = async (req, res, next) => {
         next();
     } catch (err) {
         console.log(err);
+        res.status(400).send(err.message);
     }
 };
 

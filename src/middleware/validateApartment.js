@@ -6,7 +6,7 @@ const validateApartment = async (req, res, next) => {
     try {
         const apartment = await Apartment.findById(req.query.apartmentId);
         if (!apartment) return res.status(400).send("Apartment was not found");
-
+        req.apartment = apartment;
         next();
     } catch (err) {
         console.log(err);

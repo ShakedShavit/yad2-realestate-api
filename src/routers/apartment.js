@@ -2,11 +2,11 @@ const express = require('express');
 const Apartment = require('../models/apartment');
 const auth = require('../middleware/auth');
 const FileModel = require('../models/file');
-// const publishApartment = require('../middleware/publishApartment');
 const {
     uploadFilesToS3, getFileFromS3
 } = require('../middleware/s3-handlers');
 const validateApartment = require('../middleware/validateApartment');
+const { Readable } = require('stream');
 
 const router = express.Router();
 
@@ -78,10 +78,12 @@ router.post(rootRoute + 'publish/upload-files', auth, validateApartment, uploadF
     }
 
     try {
+        await req.apartment.populate('files').execPopulate();
+        let isFirstFileOfApartment = req.apartment.files.length === 0;
+
         let files = [];
         let fileObjectsSavesPromises = [];
-        for (let i = 0; i < req.files.length; i++) {
-            let reqFile = req.files[i];
+        for (let reqFile of req.files) {
             let file = new FileModel({
                 originalName: reqFile.originalname,
                 storageName: reqFile.key.split("/")[1],
@@ -89,10 +91,11 @@ router.post(rootRoute + 'publish/upload-files', auth, validateApartment, uploadF
                 region: process.env.AWS_REGION,
                 key: reqFile.key,
                 type: reqFile.mimetype,
-                owner: req.query.apartmentId, // !!
-                isMainFile: i === 0
+                owner: req.query.apartmentId,
+                isMainFile: isFirstFileOfApartment
             });
             fileObjectsSavesPromises.push(file.save());
+            if (isFirstFileOfApartment) isFirstFileOfApartment = false; // Makes sure only the first file is saved as the main one
         }
         const values = await Promise.allSettled(fileObjectsSavesPromises);
         values.forEach(value => { if (value.status === "fulfilled") files.push(value.value) });
@@ -195,8 +198,6 @@ router.get(rootRoute, async (req, res) => {
             }
     }
 
-    console.log(strAndBoolQueries, numericQueries, "\n", params);
-
     try {
         const apartments = await Apartment.find({
             $and: [...strAndBoolQueries, ...numericQueries, {
@@ -222,7 +223,8 @@ router.get(rootRoute, async (req, res) => {
 router.get(rootRoute + 'get-file', getFileFromS3, async (req, res) => {
     try {
         const stream = Readable.from(req.fileBuffer);
-        const fileName = req.query.name;
+        //const fileName = req.query.name;
+        const fileName = req.query.key.substring(req.query.key.lastIndexOf('/') + 1);
 
         if (req.query.download === 'true') {
             res.setHeader(
@@ -235,7 +237,7 @@ router.get(rootRoute + 'get-file', getFileFromS3, async (req, res) => {
                 'inline'
             );
         }
-        
+
         stream.pipe(res);
     } catch (err) {
         console.log(err);
