@@ -3,10 +3,13 @@ const Apartment = require('../models/apartment');
 const auth = require('../middleware/auth');
 const FileModel = require('../models/file');
 const {
-    uploadFilesToS3, getFileFromS3
+    uploadFilesToS3,
+    getFileFromS3
 } = require('../middleware/s3-handlers');
 const validateApartment = require('../middleware/validateApartment');
-const { Readable } = require('stream');
+const {
+    Readable
+} = require('stream');
 
 const router = express.Router();
 
@@ -57,7 +60,7 @@ router.post(rootRoute + 'publish', auth, async (req, res) => {
         }
 
         if (!req.body.publishers || req.body.publishers.length === 0) throw new Error("Apartment's publishers are missing, must include at least one (name, phone number)");
-        apartmentObj.publishers = [ ...req.body.publishers ];
+        apartmentObj.publishers = [...req.body.publishers];
 
         const apartment = new Apartment(apartmentObj);
         await apartment.save();
@@ -98,7 +101,9 @@ router.post(rootRoute + 'publish/upload-files', auth, validateApartment, uploadF
             if (isFirstFileOfApartment) isFirstFileOfApartment = false; // Makes sure only the first file is saved as the main one
         }
         const values = await Promise.allSettled(fileObjectsSavesPromises);
-        values.forEach(value => { if (value.status === "fulfilled") files.push(value.value) });
+        values.forEach(value => {
+            if (value.status === "fulfilled") files.push(value.value)
+        });
 
         res.status(201).send(files)
     } catch (err) {
@@ -174,7 +179,7 @@ router.get(rootRoute, async (req, res) => {
 
             continue;
         }
-        
+
         let field = key.substring(4); // "Omits the min- or max- label"
         if (apartmentModelNumFields.includes(field)) {
             if (!apartmentModelNumFields.includes(field)) continue; // !! find({ airedAt: { $gte: '1987-10-19', $lte: '1987-10-26' } }). DATE FORMAT
@@ -195,7 +200,7 @@ router.get(rootRoute, async (req, res) => {
                     $lte: value
                 }
             });
-            }
+        }
     }
 
     try {
@@ -211,9 +216,13 @@ router.get(rootRoute, async (req, res) => {
         for (apartment of apartments) {
             populateFilesPromises.push(apartment.populate('files').execPopulate());
         }
-        await Promise.allSettled(populateFilesPromises, (values) => {});
+        await Promise.allSettled(populateFilesPromises);
+        let apartmentObjects = apartments.map(apartment => ({
+            apartment,
+            files: apartment.files || []
+        }));
 
-        res.status(200).send(apartments);
+        res.status(200).send(apartmentObjects || []);
     } catch (err) {
         console.log(err.message, '138');
         res.status(500).send(err);
