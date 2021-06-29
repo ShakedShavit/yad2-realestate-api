@@ -23,6 +23,41 @@ const userSchema = new mongoose.Schema({
                 throw new Error('Passwords must contain at least six characters, at least one letter, one number and one capital letter');
         }
     },
+    firstName: {
+        type: String,
+        required: true,
+        minlength: 1,
+        validate(value) {
+            if (!(/^[a-zA-Zא-ת]+$/).test(value))
+            throw new Error('First name must only include letters');
+        }
+    },
+    lastName: {
+        type: String,
+        required: true,
+        minlength: 1,
+        validate(value) {
+            if (!(/^[a-zA-Zא-ת]+$/).test(value))
+            throw new Error('Last name must only include letters');
+        }
+    },
+    phoneNumber: {
+        type: String,
+        required: true,
+        trim: true,
+        validate(value) {
+            if (isNaN(value)) throw new Error('Phone number can only include numbers');
+            if (value.length !== 10) throw new Error(`Phone number must be exactly 10 digits long, it currently has ${value.length} digits`);
+            if (value.substring(0, 2) !== '05') throw new Error('Phone number must start with 05 characters');
+            if (value[2] === '9' || value[2] === '7' || value[2] === '6') throw new Error(`Phone number cannot begin with ${value.substring(0, 3)}, change the third character (${value[2]})`);
+        }
+    },
+    dateOfBirth: {
+        type: Date,
+        validate(value) {
+            if (value > Date.now()) throw new Error('Entry date cannot be before today');
+        }
+    },
     tokens: [
         {
             token: {

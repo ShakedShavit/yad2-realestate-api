@@ -88,7 +88,6 @@ const apartmentSchema = new mongoose.Schema({
         },
         streetName: {
             type: String,
-            required: true,
             trim: true
         },
         houseNum: {
