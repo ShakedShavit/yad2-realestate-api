@@ -54,6 +54,7 @@ const apartmentConfig = {
         'hasTadiranAc',
         'hasWindowBars',
         'description',
+        'furnitureDescription',
         'price',
         'builtSqm',
         'totalSqm',
@@ -201,6 +202,13 @@ const apartmentSchema = new mongoose.Schema({
             required: false
         },
         description: {
+            type: String,
+            trim: true,
+            validate(value) {
+                if (value.length > 400) throw new Error('Description cannot surpass 400 letters in length');
+            }
+        },
+        furnitureDescription: {
             type: String,
             trim: true,
             validate(value) {

@@ -44,7 +44,8 @@ router.post(rootRoute + 'publish', auth, async (req, res) => {
                 hasPandorDoors: req.body.hasPandorDoors,
                 hasTadiranAc: req.body.hasTadiranAc,
                 hasWindowBars: req.body.hasWindowBars,
-                description: req.body.description
+                description: req.body.description,
+                furnitureDescription: req.body.furnitureDescription
             },
             price: req.body.price,
             size: {
@@ -117,7 +118,8 @@ const apartmentModelStrFields = [
     'condition',
     'town',
     'streetName',
-    'description'
+    'description',
+    'furnitureDescription'
 ];
 const apartmentModelBoolFields = [
     // 'isStandingOnPolls',

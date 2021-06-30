@@ -30,7 +30,8 @@ const publishApartment = async (req, res, next) => {
                 hasPandorDoors: req.hasPandorDoors,
                 hasTadiranAc: req.hasTadiranAc,
                 hasWindowBars: req.hasWindowBars,
-                description: req.description
+                description: req.description,
+                furnitureDescription: req.furnitureDescription
             },
             price: req.price,
             size: {
@@ -46,7 +47,6 @@ const publishApartment = async (req, res, next) => {
             publisher: req.user._id
         }
 
-        //!!! Check here how it will work with fd
         console.log(req.publishers);
         if (!req.publishers || req.publishers.length === 0) throw new Error("Apartment's publishers are missing, must include at least one (name, phone number)");
         req.publishers.forEach(publisher => {
