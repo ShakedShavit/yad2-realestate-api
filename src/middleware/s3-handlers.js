@@ -30,7 +30,7 @@ const fileStorage = multerS3({
     }
 });
 
-const uploadFilesToS3 = multer({ storage: fileStorage }).array("files", 10);
+const uploadFilesToS3 = multer({ storage: fileStorage }).array("files", 11);
 
 const getFileFromS3 = async (req, res, next) => {
     const Key = req.query.key;

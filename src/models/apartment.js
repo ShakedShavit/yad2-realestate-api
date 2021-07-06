@@ -237,7 +237,7 @@ const apartmentSchema = new mongoose.Schema({
             type: Date,
             required: true,
             validate(value) {
-                if (value < Date.now()) throw new Error('Entry date cannot be before today');
+                if (value <= new Date(Date.now() - 86400000)) throw new Error('Entry date cannot be before today');
             }
         },
         isImmediate: {
@@ -258,13 +258,12 @@ const apartmentSchema = new mongoose.Schema({
             validate(value) {
                 if (isNaN(value)) throw new Error('Phone number can only include numbers');
                 if (value.length !== 10) throw new Error(`Phone number must be exactly 10 digits long, it currently has ${value.length} digits`);
-                if (value.substring(0, 2) !== '05') throw new Error('Phone number must start with 05 characters');
-                if (value[2] === '9' || value[2] === '7' || value[2] === '6') throw new Error(`Phone number cannot begin with ${value.substring(0, 3)}, change the third character (${value[2]})`);
+                if (value[0] !== '0') throw new Error('Phone number must start with 0 character');
             }
         },
         canBeInContactOnWeekends: {
             type: Boolean,
-            default: true
+            default: false
         }
     }],
     contactEmail: {

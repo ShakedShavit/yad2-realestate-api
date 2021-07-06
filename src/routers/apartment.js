@@ -66,7 +66,7 @@ router.post(rootRoute + 'publish', auth, async (req, res) => {
         const apartment = new Apartment(apartmentObj);
         await apartment.save();
 
-        res.status(201).send(apartment);
+        res.status(201).send(apartment._id);
     } catch (err) {
         console.log(err.message, '42');
         res.status(400).send(err);
