@@ -152,19 +152,21 @@ const apartmentModelNumFields = [
 ];
 
 router.get(rootRoute, async (req, res) => {
-    const apartmentsPollLimit = 20;
+    const apartmentsPollLimit = 5;
     const params = req.query;
     if (!params.apartmentIds) params.apartmentIds = [];
+    if (!params.types) params.types = [];
+    if (!params.conditions) params.conditions = [];
 
     let strAndBoolQueries = [];
     let numericQueries = [];
+    let orQueries = [];
 
     for (let [key, value] of Object.entries(params)) {
         let modelKey;
         if (apartmentModelStrFields.includes(key) || apartmentModelBoolFields.includes(key)) {
             if (key === 'town' || key === 'streetName') modelKey = `location.${key}`;
             else if (key === 'isImmediate') modelKey = `entranceDate.${key}`;
-            else if (key === 'type' || key === 'condition') modelKey = key;
             else modelKey = `properties.${key}`;
 
             if (key === 'description') {
@@ -175,6 +177,7 @@ router.get(rootRoute, async (req, res) => {
                 });
                 continue;
             }
+
             strAndBoolQueries.push({
                 [`${modelKey}`]: value
             });
@@ -205,9 +208,18 @@ router.get(rootRoute, async (req, res) => {
         }
     }
 
+    for (let type of params.types) {
+        orQueries.push({ 'type': type })
+    }
+    for (let condition of params.conditions) {
+        orQueries.push({ 'condition': condition })
+    }
+
     try {
         const apartments = await Apartment.find({
-            $and: [...strAndBoolQueries, ...numericQueries, {
+            $and: [...strAndBoolQueries, ...numericQueries, orQueries.length > 0 ? {
+                $or: [...orQueries]
+            } : {}, {
                 _id: {
                     $nin: [...params.apartmentIds]
                 }

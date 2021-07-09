@@ -248,7 +248,6 @@ const apartmentSchema = new mongoose.Schema({
     publishers: [{
         publisherName: {
             type: String,
-            required: true,
             trim: true
         },
         phoneNumber: {
