@@ -10,58 +10,17 @@ const validateApartment = require('../middleware/validateApartment');
 const {
     Readable
 } = require('stream');
+const getApartmentObj = require('../utils/getApartmentObj');
 
 const router = express.Router();
 
-const rootRoute = '/apartments/'
+const rootRoute = '/apartments/';
 
 router.post(rootRoute + 'publish', auth, async (req, res) => {
     try {
-        let apartmentObj = {
-            type: req.body.type,
-            condition: req.body.condition,
-            location: {
-                town: req.body.town,
-                streetName: req.body.streetName,
-                houseNum: req.body.houseNum,
-                floor: req.body.floor,
-                buildingMaxFloor: req.body.buildingMaxFloor
-            },
-            properties: {
-                isStandingOnPolls: req.body.isStandingOnPolls,
-                numberOfRooms: req.body.numberOfRooms,
-                numberOfParkingSpots: req.body.numberOfParkingSpots,
-                numberOfBalconies: req.body.numberOfBalconies,
-                hasAirConditioning: req.body.hasAirConditioning,
-                hasFurniture: req.body.hasFurniture,
-                isRenovated: req.body.isRenovated,
-                hasSafeRoom: req.body.hasSafeRoom,
-                isAccessible: req.body.isAccessible,
-                hasKosherKitchen: req.body.hasKosherKitchen,
-                hasShed: req.body.hasShed,
-                hasLift: req.body.hasLift,
-                hasSunHeatedWaterTanks: req.body.hasSunHeatedWaterTanks,
-                hasPandorDoors: req.body.hasPandorDoors,
-                hasTadiranAc: req.body.hasTadiranAc,
-                hasWindowBars: req.body.hasWindowBars,
-                description: req.body.description,
-                furnitureDescription: req.body.furnitureDescription
-            },
-            price: req.body.price,
-            size: {
-                builtSqm: req.body.builtSqm,
-                totalSqm: req.body.totalSqm
-            },
-            entranceDate: {
-                date: req.body.date,
-                isImmediate: req.body.isImmediate
-            },
-            contactEmail: req.body.contactEmail,
-            publisher: req.user._id
-        }
-
         if (!req.body.publishers || req.body.publishers.length === 0) throw new Error("Apartment's publishers are missing, must include at least one (name, phone number)");
-        apartmentObj.publishers = [...req.body.publishers];
+        
+        let apartmentObj = getApartmentObj(req.body, [...req.body.publishers], req.user._id);
 
         const apartment = new Apartment(apartmentObj);
         await apartment.save();
