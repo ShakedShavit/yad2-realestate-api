@@ -18,11 +18,7 @@ router.post(rootRoute + "publish", auth, async (req, res) => {
                 "Apartment's publishers are missing, must include at least one (name, phone number)"
             );
 
-        let apartmentObj = getApartmentObj(
-            req.body,
-            [...req.body.publishers],
-            req.user._id
-        );
+        let apartmentObj = getApartmentObj(req.body, [...req.body.publishers], req.user._id);
 
         const apartment = new Apartment(apartmentObj);
         await apartment.save();
@@ -89,7 +85,6 @@ const apartmentModelStrFields = [
     "furnitureDescription",
 ];
 const apartmentModelBoolFields = [
-    // 'isStandingOnPolls',
     "hasAirConditioning",
     "hasFurniture",
     "isRenovated",
@@ -103,7 +98,6 @@ const apartmentModelBoolFields = [
     "hasTadiranAc",
     "hasWindowBars",
     "isImmediate",
-    // 'canBeInContactOnWeekends'
 ];
 const apartmentModelNumFields = [
     "houseNum",
@@ -118,103 +112,117 @@ const apartmentModelNumFields = [
     "date",
 ];
 
+const addStrAndBoolQueries = (strAndBoolQueries, key, value) => {
+    let modelKey;
+    switch (key) {
+        case "town":
+        case "streetName":
+            modelKey = `location.${key}`;
+            break;
+        case "isImmediate":
+            modelKey = `entranceDate.${key}`;
+            break;
+        default:
+            modelKey = `properties.${key}`;
+    }
+
+    if (key === "description") {
+        strAndBoolQueries.push({
+            [`${modelKey}`]: {
+                $regex: `${value.substring(0, 400)}`,
+            },
+        });
+        return;
+    }
+
+    strAndBoolQueries.push({ [`${modelKey}`]: value });
+};
+
+const addNumQueries = (numericQueries, field, key, value) => {
+    let modelKey;
+    switch (field) {
+        case "houseNum":
+        case "floor":
+        case "buildingMaxFloor":
+            modelKey = `location.${field}`;
+            break;
+        case "builtSqm":
+        case "totalSqm":
+            modelKey = `size.${field}`;
+            break;
+        case "date":
+            modelKey = `entranceDate.${field}`;
+            break;
+        case "price":
+            modelKey = field;
+            break;
+        default:
+            modelKey = `properties.${field}`;
+    }
+
+    let isMin = key.substring(0, 3) === "min";
+    isMin
+        ? numericQueries.push({
+              [modelKey]: {
+                  $gte: value,
+              },
+          })
+        : numericQueries.push({
+              [modelKey]: {
+                  $lte: value,
+              },
+          });
+};
+
+const getApartmentSearchQuery = (strAndBoolQueries, numericQueries, orQueries) => {
+    return {
+        $and: [
+            ...strAndBoolQueries,
+            ...numericQueries,
+            orQueries.length > 0
+                ? {
+                      $or: [...orQueries],
+                  }
+                : {},
+        ],
+    };
+};
+
 router.get(rootRoute, async (req, res) => {
     const apartmentsPollLimit = 10;
     const params = req.query;
-    if (!params.apartmentIds) params.apartmentIds = [];
     if (!params.types) params.types = [];
     if (!params.conditions) params.conditions = [];
 
-    let strAndBoolQueries = [];
-    let numericQueries = [];
-    let orQueries = [];
+    const strAndBoolQueries = [];
+    const numericQueries = [];
+    const orQueries = [];
 
     for (let [key, value] of Object.entries(params)) {
-        let modelKey;
-        if (
-            apartmentModelStrFields.includes(key) ||
-            apartmentModelBoolFields.includes(key)
-        ) {
-            if (key === "town" || key === "streetName")
-                modelKey = `location.${key}`;
-            else if (key === "isImmediate") modelKey = `entranceDate.${key}`;
-            else modelKey = `properties.${key}`;
-
-            if (key === "description") {
-                strAndBoolQueries.push({
-                    [`${modelKey}`]: {
-                        $regex: `${value.substring(0, 400)}`,
-                    },
-                });
-                continue;
-            }
-
-            strAndBoolQueries.push({
-                [`${modelKey}`]: value,
-            });
-
+        if (apartmentModelStrFields.includes(key) || apartmentModelBoolFields.includes(key)) {
+            addStrAndBoolQueries(strAndBoolQueries, key, value);
             continue;
         }
 
         let field = key.substring(4); // "Omits the min- or max- label"
-        if (apartmentModelNumFields.includes(field)) {
-            if (!apartmentModelNumFields.includes(field)) continue; // !! find({ airedAt: { $gte: '1987-10-19', $lte: '1987-10-26' } }). DATE FORMAT
-
-            if (
-                field === "houseNum" ||
-                field === "floor" ||
-                field === "buildingMaxFloor"
-            )
-                modelKey = `location.${field}`;
-            else if (field === "builtSqm" || field === "totalSqm")
-                modelKey = `size.${field}`;
-            else if (field === "date") modelKey = `entranceDate.${field}`;
-            else if (field === "price") modelKey = field;
-            else modelKey = `properties.${field}`;
-
-            let isMin = key.substring(0, 3) === "min";
-            isMin
-                ? numericQueries.push({
-                      [modelKey]: {
-                          $gte: value,
-                      },
-                  })
-                : numericQueries.push({
-                      [modelKey]: {
-                          $lte: value,
-                      },
-                  });
-        }
+        if (apartmentModelNumFields.includes(field))
+            addNumQueries(numericQueries, field, key, value);
     }
 
-    for (let type of params.types) {
-        orQueries.push({ type: type });
-    }
-    for (let condition of params.conditions) {
-        orQueries.push({ condition: condition });
-    }
+    for (let type of params.types) orQueries.push({ type: type });
+    for (let condition of params.conditions) orQueries.push({ condition: condition });
 
     try {
-        const apartments = await Apartment.find({
-            $and: [
-                ...strAndBoolQueries,
-                ...numericQueries,
-                orQueries.length > 0
-                    ? {
-                          $or: [...orQueries],
-                      }
-                    : {},
-            ],
-        })
+        const apartments = await Apartment.find(
+            getApartmentSearchQuery(strAndBoolQueries, numericQueries, orQueries)
+        )
             .limit(apartmentsPollLimit)
             .skip(parseInt(req.query.skipCounter));
 
         let populateFilesPromises = [];
-        for (apartment of apartments) {
-            populateFilesPromises.push(
-                apartment.populate("files").execPopulate()
-            );
-        }
+        for (apartment of apartments)
+            populateFilesPromises.push(apartment.populate("files").execPopulate());
+
         await Promise.allSettled(populateFilesPromises);
         let apartmentObjects = apartments.map((apartment) => ({
             apartment,
@@ -223,7 +231,6 @@ router.get(rootRoute, async (req, res) => {
 
         res.status(200).send(apartmentObjects || []);
     } catch (err) {
-        console.log(err.message, "138");
         res.status(500).send(err);
     }
 });
@@ -231,16 +238,11 @@ router.get(rootRoute, async (req, res) => {
 router.get(rootRoute + "get-file", getFileFromS3, async (req, res) => {
     try {
         const stream = Readable.from(req.fileBuffer);
-        //const fileName = req.query.name;
-        const fileName = req.query.key.substring(
-            req.query.key.lastIndexOf("/") + 1
-        );
+
+        const fileName = req.query.key.substring(req.query.key.lastIndexOf("/") + 1);
 
         if (req.query.download === "true") {
-            res.setHeader(
-                "Content-Disposition",
-                "attachment; filename=" + fileName
-            );
+            res.setHeader("Content-Disposition", "attachment; filename=" + fileName);
         } else {
             res.setHeader("Content-Disposition", "inline");
         }

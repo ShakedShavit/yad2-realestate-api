@@ -11,11 +11,7 @@ const fileStorage = multerS3({
     acl: "private", //'public-read',
     contentType: multerS3.AUTO_CONTENT_TYPE,
     contentDisposition: (req, file, cb) => {
-        console.log(
-            file,
-            "\n",
-            contentDisposition(file.originalname, { type: "inline" })
-        );
+        console.log(file, "\n", contentDisposition(file.originalname, { type: "inline" }));
         cb(null, contentDisposition(file.originalname, { type: "inline" }));
     },
     bucket,
@@ -26,19 +22,12 @@ const fileStorage = multerS3({
         const contentDispositionStr = contentDisposition(file.originalname, {
             type: "inline",
         });
-        let newFileName = contentDispositionStr.substring(
-            contentDispositionStr.indexOf(";") + 12
-        );
+        let newFileName = contentDispositionStr.substring(contentDispositionStr.indexOf(";") + 12);
         newFileName = newFileName.substring(0, newFileName.indexOf('"'));
 
         const folderName = req.query.apartmentId + "/";
         const subFolderName = file.mimetype.split("/")[0] + "s/";
-        const fileName =
-            folderName +
-            subFolderName +
-            new Date().getTime() +
-            "-" +
-            newFileName;
+        const fileName = folderName + subFolderName + new Date().getTime() + "-" + newFileName;
         cb(null, fileName);
     },
 });

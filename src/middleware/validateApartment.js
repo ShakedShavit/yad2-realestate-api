@@ -12,6 +12,6 @@ const validateApartment = async (req, res, next) => {
         console.log(err);
         res.status(400).send(err.message);
     }
-}
+};
 
 module.exports = validateApartment;

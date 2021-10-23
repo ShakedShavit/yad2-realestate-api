@@ -1,4 +1,4 @@
-const mongoose = require('mongoose');
+const mongoose = require("mongoose");
 
 //connecting to the database
 mongoose.connect(process.env.MONGODB_URI, {

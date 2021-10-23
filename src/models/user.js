@@ -12,8 +12,7 @@ const userSchema = new mongoose.Schema(
             required: true,
             trim: true,
             validate(value) {
-                if (!validator.isEmail(value))
-                    throw new Error("Email is not valid");
+                if (!validator.isEmail(value)) throw new Error("Email is not valid");
             },
         },
         password: {
@@ -21,11 +20,7 @@ const userSchema = new mongoose.Schema(
             required: true,
             minlength: 6,
             validate(value) {
-                if (
-                    !/^(?=.*\d)(?=.*[a-z])(?=.*[A-Z])(?=.*[a-zA-Z]).{6,}$/.test(
-                        value
-                    )
-                )
+                if (!/^(?=.*\d)(?=.*[a-z])(?=.*[A-Z])(?=.*[a-zA-Z]).{6,}$/.test(value))
                     throw new Error(
                         "Passwords must contain at least six characters, at least one letter, one number and one capital letter"
                     );
@@ -54,16 +49,13 @@ const userSchema = new mongoose.Schema(
             required: true,
             trim: true,
             validate(value) {
-                if (isNaN(value))
-                    throw new Error("Phone number can only include numbers");
+                if (isNaN(value)) throw new Error("Phone number can only include numbers");
                 if (value.length !== 10)
                     throw new Error(
                         `Phone number must be exactly 10 digits long, it currently has ${value.length} digits`
                     );
                 if (value.substring(0, 2) !== "05")
-                    throw new Error(
-                        "Phone number must start with 05 characters"
-                    );
+                    throw new Error("Phone number must start with 05 characters");
                 if (value[2] === "9" || value[2] === "7" || value[2] === "6")
                     throw new Error(
                         `Phone number cannot begin with ${value.substring(
@@ -76,8 +68,7 @@ const userSchema = new mongoose.Schema(
         dateOfBirth: {
             type: Date,
             validate(value) {
-                if (value > Date.now())
-                    throw new Error("Entry date cannot be before today");
+                if (value > Date.now()) throw new Error("Entry date cannot be before today");
             },
         },
         tokens: [
@@ -145,8 +136,7 @@ userSchema.statics.findByCredentials = async (email, password) => {
 // Hash the plain text password before saving
 userSchema.pre("save", async function (next) {
     const user = this;
-    if (user.isModified("password"))
-        user.password = await bcrypt.hash(user.password, 8);
+    if (user.isModified("password")) user.password = await bcrypt.hash(user.password, 8);
 
     next();
 });
