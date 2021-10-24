@@ -70,7 +70,6 @@ router.post(
 
             res.status(201).send(files);
         } catch (err) {
-            console.log(err.message, "42");
             res.status(500).send(err);
         }
     }
