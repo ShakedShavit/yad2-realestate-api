@@ -11,7 +11,6 @@ const fileStorage = multerS3({
     acl: "private", //'public-read',
     contentType: multerS3.AUTO_CONTENT_TYPE,
     contentDisposition: (req, file, cb) => {
-        console.log(file, "\n", contentDisposition(file.originalname, { type: "inline" }));
         cb(null, contentDisposition(file.originalname, { type: "inline" }));
     },
     bucket,
